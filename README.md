@@ -163,3 +163,9 @@ When the allocator cannot find a suitable block, it triggers *coalesce_everythin
 1. The main limitation is that it uses *Static Memmory*. We use 2 lists,, implicit and explicit list of size **CHUNKSIZE** so we are limited to that. I am working on dynamic memmory version so you can expect it in future. 
 2. This is also not *thread safe* so it can giive rise to **race** conditions(I will be solving it in dynamic alloc).
 3. Allocation times is slow **(O(n))** , since we have to travel linked list till we find the suitable block.
+## How to run
+If you add #include "hyalloc.h" in your programe then say your file is main.c then do 
+```bash
+gcc main.c hyalloc.c -o main
+./main
+```
