@@ -166,6 +166,6 @@ When the allocator cannot find a suitable block, it triggers *coalesce_everythin
 ## How to run
 If you add #include "hyalloc.h" in your programe then say your file is main.c then do 
 ```bash
-gcc main.c hyalloc.c -o main
-./main
+make all
+./final
 ```
