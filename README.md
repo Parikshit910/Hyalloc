@@ -35,7 +35,54 @@ When the allocator cannot find a suitable block, it triggers *coalesce_everythin
 3. Re-sorts the free list using an Insertion Sort (O(n) in nearly-sorted cases) to maintain size order, facilitating a "Best-Fit" allocation style.
    
 ## Some Test I Performed
-1. ### test_metadata_alignment
+1. ### random_walk(Most Important)
+   ```c
+   void run_random_walk() {
+    /*walk*/
+    int iterations = 0;
+    for (int i = 0; i < 10000; i++)
+    {   iterations++;
+        int index = rand() % 1000;
+        if (info[index].ptr == NULL)
+        {   
+            int called_size = rand() % 513;
+
+            void* called_ptr = hymalloc(called_size);
+            info[index].ptr = called_ptr;
+            info[index].size = called_size;
+
+        }
+        else{
+            int action = rand() % 2;
+            if (action == 0)
+            {   
+                hyfree(info[index].ptr, info[index].size);
+                info[index].ptr = NULL;
+                info[index].size = 0;
+            }
+            
+        }
+    }
+    printf("Random walk completed with %d iterations.\n", iterations);
+    for (int i = 0; i < 1000; i++)
+    {
+        
+        if (info[i].ptr != NULL)
+        {
+            hyfree(info[i].ptr, info[i].size);
+        }
+        
+    }
+    printf("all memory freed\n");
+    hydestroy();
+    }
+   ```
+   **Result***
+   ```bash
+    Random walk completed with 10000 iterations.
+    all memory freed
+   ```
+2. ### test_metadata_alignment
     ```c
     void test_metadata_alignment() {
     size_t request_size = 33;
@@ -60,7 +107,7 @@ When the allocator cannot find a suitable block, it triggers *coalesce_everythin
     Actual Block Size (Aligned): 40
     RESULT: PASS
     ```
-2. ### test_threshold_boundary
+3. ### test_threshold_boundary
    ```c
    void test_threshold_boundary() {
     void* ptr = hymalloc(THRESHOLD);
@@ -84,7 +131,7 @@ When the allocator cannot find a suitable block, it triggers *coalesce_everythin
     Successfully allocated 32 bytes from the Implicit pool.
     RESULT: PASS
    ```
-3. ### test_heap_overflow
+4. ### test_heap_overflow
     ```c
     void test_heap_overflow(){
     int count = CHUNKSIZE/THRESHOLD + 1;
@@ -102,7 +149,7 @@ When the allocator cannot find a suitable block, it triggers *coalesce_everythin
     ```bash
     TEST PASS
     ```
-4. ### test_free_reuse(the most importent)
+5. ### test_free_reuse(the most importent)
    ```c
    void test_free_reuse(){
     void* ptr1 = hymalloc(100);
@@ -126,7 +173,7 @@ When the allocator cannot find a suitable block, it triggers *coalesce_everythin
     Second Alloc: 0x403080
     RESULT: PASS (Memory Recycled)
    ```
-5. ### test_explicit_coalescing
+6. ### test_explicit_coalescing
    ```c
    void test_explicit_coalescing() {
     printf("--- Running: Explicit Coalesce Test ---\n");
@@ -160,9 +207,9 @@ When the allocator cannot find a suitable block, it triggers *coalesce_everythin
     RESULT: PASS (Adjacent blocks merged successfully)
    ```
 ## Limitations
-1. The main limitation is that it uses *Static Memmory*. We use 2 lists,, implicit and explicit list of size **CHUNKSIZE** so we are limited to that. I am working on dynamic memmory version so you can expect it in future. 
-2. This is also not *thread safe* so it can giive rise to **race** conditions(I will be solving it in dynamic alloc).
-3. Allocation times is slow **(O(n))** , since we have to travel linked list till we find the suitable block.
+
+1. This is also not *thread safe* so it can giive rise to **race** conditions(I will be solving it in dynamic alloc).
+2. Allocation times is slow **(O(n))** , since we have to travel linked list till we find the suitable block.
 ## How to run
 If you add #include "hyalloc.h" in your programe then say your file is main.c then do 
 ```bash

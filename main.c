@@ -1,5 +1,11 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 #include "hyalloc.h"
+
+#define ITERATIONS 10000
+#define MAX_POINTERS 500
+#define MAX_ALLOC_SIZE 8192 // 8KB
 void test_metadata_alignment() {
     size_t request_size = 33;
     int* arr = (int*)(hymalloc(request_size));
@@ -16,77 +22,101 @@ void test_metadata_alignment() {
         printf("RESULT: FAIL\n\n");
     }
 }
-void test_threshold_boundary() {
-    void* ptr = hymalloc(THRESHOLD);
-
-    /* LOGIC CHECK: 
-       Because size is NOT > THRESHOLD, this should be an Implicit block.
-       It will NOT have a Block struct header.
-    */
-    
-    if (ptr != NULL) {
-        printf("Successfully allocated 32 bytes from the Implicit pool.\n");
-        // We don't check metadata here because there isn't any!
-        printf("RESULT: PASS\n\n");
-    } else {
-        printf("RESULT: FAIL (Small pool might be full)\n\n");
-    }
-}
-void test_heap_overflow(){
-    int count = CHUNKSIZE/THRESHOLD + 1;
-    void* ptr;
-    for (int i = 0; i < count; i++)    
-        ptr = hymalloc(32);
-    
-    if (ptr == NULL)
-    {
-        printf("TEST PASS\n");
-    }else{
-        printf("TEST FAILED\n");
-    }
-    
-}
-void test_free_reuse(){
-    void* ptr1 = hymalloc(100);
-    printf("First Alloc:  %p\n", ptr1); // No & here!
-    
-    hyfree(ptr1, 100); // Make sure size matches your logic
-    
-    void* ptr2 = hymalloc(100);
-    printf("Second Alloc: %p\n", ptr2); // No & here!
-
-    if (ptr1 == ptr2) {
-        printf("RESULT: PASS (Memory Recycled)\n");
-    } else {
-        printf("RESULT: FAIL (New block used instead of old one)\n");
-    }
-}
-void test_explicit_coalescing() {
-    printf("--- Running: Explicit Coalesce Test ---\n");
-    void* ptrA = hymalloc(100);
-    void* ptrB = hymalloc(100);
-    void* ptrC = hymalloc(100); // ptrC acts as a "buffer" to the rest of the heap
-
-    printf("Block A: %p, Block B: %p\n", ptrA, ptrB);
-
-    // 2. Free the first two
-    hyfree(ptrA, 100);
-    hyfree(ptrB, 100);
-
-    // 3. Request a block larger than 100 but smaller than 200
-    // If A and B merged, ptrD should equal ptrA.
-    void* ptrD = hymalloc(180);
-    printf("Block D (180 bytes): %p\n", ptrD);
-
-    if (ptrD == ptrA) {
-        printf("RESULT: PASS (Adjacent blocks merged successfully)\n");
-    } else {
-        printf("RESULT: FAIL (Blocks stayed fragmented)\n");
-    }
-}
-int main(int argc, char const *argv[])
-{
+void test_imp_island_jump() {
     init();
-    test_explicit_coalescing();
-    return 0;
+    
+    // 1. Calculate how many blocks fit in exactly one CHUNKSIZE
+    int blocks_per_chunk = CHUNKSIZE / THRESHOLD;
+    void* last_ptr_in_chunk = NULL;
+    void* first_ptr_new_chunk = NULL;
+
+    printf("Filling first chunk with %d blocks...\n", blocks_per_chunk);
+
+    // 2. Exhaust the first chunk
+    for (int i = 0; i < blocks_per_chunk; i++) {
+        last_ptr_in_chunk = hymalloc(32);
+        if (last_ptr_in_chunk == NULL) {
+            printf("FAIL: Could not even fill the first chunk!\n");
+            return;
+        }
+    }
+
+    // 3. This allocation MUST trigger inc_imp_heap()
+    printf("Triggering inc_imp_heap()...\n");
+    first_ptr_new_chunk = hymalloc(32);
+
+    // 4. Verification Logic
+    if (first_ptr_new_chunk == NULL) {
+        printf("FAIL: inc_imp_heap failed to return memory.\n");
+    } else if ((char*)first_ptr_new_chunk < (char*)last_ptr_in_chunk + CHUNKSIZE && 
+               (char*)first_ptr_new_chunk > (char*)last_ptr_in_chunk - CHUNKSIZE) {
+        // If the new pointer is within 1MB of the old one, it might just be the same chunk.
+        // In mmap, chunks are usually far apart.
+        printf("WARNING: New block is very close to old block. Check mmap logic.\n");
+    } else {
+        printf("SUCCESS: Island jump successful!\n");
+        printf("Last block (Chunk 1): %p\n", last_ptr_in_chunk);
+        printf("First block (Chunk 2): %p\n", first_ptr_new_chunk);
+    }
+
+    hydestroy();
+}
+struct alloc_info
+{
+    void* ptr;
+    int size;
+} info[1000];
+
+void nullify(void){
+    for (int i = 0; i < 1000; i++)
+    {
+        info[i].ptr  = NULL;
+        info[i].size = 0;
+    }
+    
+}
+void run_random_walk() {
+    /*walk*/
+    int iterations = 0;
+    for (int i = 0; i < 10000; i++)
+    {   iterations++;
+        int index = rand() % 1000;
+        if (info[index].ptr == NULL)
+        {   
+            int called_size = rand() % 513;
+
+            void* called_ptr = hymalloc(called_size);
+            info[index].ptr = called_ptr;
+            info[index].size = called_size;
+
+        }
+        else{
+            int action = rand() % 2;
+            if (action == 0)
+            {   
+                hyfree(info[index].ptr, info[index].size);
+                info[index].ptr = NULL;
+                info[index].size = 0;
+            }
+            
+        }
+    }
+    printf("Random walk completed with %d iterations.\n", iterations);
+    for (int i = 0; i < 1000; i++)
+    {
+        
+        if (info[i].ptr != NULL)
+        {
+            hyfree(info[i].ptr, info[i].size);
+        }
+        
+    }
+    printf("all memory freed\n");
+    hydestroy();
+}
+int main() {
+  init();
+  run_random_walk();
+  hydestroy();
+  return 0;
 }
