@@ -135,7 +135,7 @@ void* hymalloc(size_t size){
     /*main_blk is moved from start to 32 bytes + requested size , the head is pointed towards new block if its lower than */
     if (head == main_blk)
     {
-      main_blk->size = main_blk->size - total_needed;
+      
       main_blk = (Block*)((char*)head + total_needed);
       Block* block1 = head;
       block1->is_Free = false;
@@ -144,6 +144,7 @@ void* hymalloc(size_t size){
       block1->size = size;
       main_blk->next = main_blk;
       main_blk->prev = main_blk;
+      main_blk->size = main_blk->size - total_needed;
       return (void *)(block1 + 1);
     }
     Block* old_curr = curr;
