@@ -65,7 +65,6 @@ void inc_exp_heap(size_t size){
   Block* curr1 = head;
   Block* old_main_blk = main_blk;
   void* new_main_blk = mmap(NULL, size+CHUNKSIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-
   if (new_main_blk == MAP_FAILED)
   {
     perror("MAP FAILED");
@@ -82,8 +81,7 @@ void inc_exp_heap(size_t size){
   main_blk->next = main_blk;
   main_blk->prev = main_blk;
   main_blk->size = size + CHUNKSIZE - sizeof(Block);
-      do
-    {
+      do{    
       if((curr1->size) >= (old_main_blk->size)){
         Block* prev_blk = curr1->prev;
         prev_blk->next = old_main_blk;
@@ -210,15 +208,18 @@ void* hymalloc(size_t size){
   if (size > THRESHOLD)
   {  
     size  =  ALIGN(size);
-      size_t total_needed = sizeof(Block) + size;
+    size_t total_needed = sizeof(Block) + size;
     /*main_blk is moved from start to 32 bytes + requested size , the head is pointed towards new block if its lower than */
 
     if (head == main_blk)
+    {if (total_needed > main_blk->size)
     {
+      inc_exp_heap(size);
 
-
+    }
+      size_t temp = main_blk->size;  
       main_blk = (Block*)((char*)head + total_needed);
-      main_blk->size = main_blk->size - total_needed;
+      main_blk->size = temp - total_needed;
       Block* block1 = head;
       block1->is_Free = false;
       block1->next = block1;
@@ -226,16 +227,15 @@ void* hymalloc(size_t size){
       block1->size = size;
       main_blk->next = main_blk;
       main_blk->prev = main_blk;
-
       return (void *)(block1 + 1);
 
     }
     void* correct_ptr = return_req_ptr(curr, size,  total_needed);
-
     if (correct_ptr != NULL)
     {
       return correct_ptr;
     }
+
     coalesce_everything();
 
     /*now we have to remember after coalesce evrything over linked list is no more ordered by size so we use INSERTION SORT,
@@ -267,18 +267,15 @@ void* hymalloc(size_t size){
 
     /*NOTE TO FUTURE ME:- the above insertion sort is very technical, make changes carefully, very carefully*/
     correct_ptr = return_req_ptr(head, size,  total_needed);
-
     if (correct_ptr != NULL)
     {
       return correct_ptr;
     }
-
     /*when we couldnt find free blk in free list we need to create new blk and get memory from  memory main_blk which is CHUNK we mapped using mmap and
     then using do-while loop we find its perfect place in the free list */
 
     if (total_needed < main_blk->size)
     {
-    
 
     Block* req_blk = main_blk;
     size_t old_size = main_blk->size;
@@ -309,7 +306,7 @@ void* hymalloc(size_t size){
       curr1 = curr1->next;
     } while (curr1 != head);
     }else{
-    inc_exp_heap(size);
+    inc_exp_heap(total_needed);
     hymalloc(size);
     }
   }
@@ -404,5 +401,5 @@ int hydestroy(void){
   {
     munmap(imp_addr_arr[i], CHUNKSIZE);
   }
-  
+  return 0;
 }
